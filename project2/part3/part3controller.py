@@ -68,121 +68,68 @@ class Part3Controller (object):
 
   def cores21_setup(self):
     #put core switch rules here
-     # h10 to h20
+    # MUST FLOOD ARP
+    fm2 = of.ofp_flow_mod()
+    fm2.match.dl_type = 0x0806     # ARP ethertype
+    fm2.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD)) # flood
+    self.connection.send(fm2)
+
+    # to h20
     h10 = of.ofp_flow_mod()
-    h10.match.dl_src = EthAddr("00:00:00:00:00:01")
-    h10.match.dl_dst = EthAddr("00:00:00:00:00:02")
-    h10.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
+    h10.match.dl_type = 0x0800     # IPv4 ethertype
+    h10.match.nw_dst = "10.0.2.0/24"
+    h10.actions.append(of.ofp_action_output(port = 2))
     self.connection.send(h10)
 
-    # h10 to h30
+    # to h10
     h10 = of.ofp_flow_mod()
-    h10.match.dl_src = EthAddr("00:00:00:00:00:01")
-    h10.match.dl_dst = EthAddr("00:00:00:00:00:03")
-    h10.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
+    h10.match.dl_type = 0x0800     # IPv4 ethertype
+    h10.match.nw_dst = "10.0.1.0/24"
+    h10.actions.append(of.ofp_action_output(port = 1))
     self.connection.send(h10)
 
-    # h10 to serv1
+    # to h30
     h10 = of.ofp_flow_mod()
-    h10.match.dl_src = EthAddr("00:00:00:00:00:01")
-    h10.match.dl_dst = EthAddr("00:00:00:00:00:04")
-    h10.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
+    h10.match.dl_type = 0x0800     # IPv4 ethertype
+    h10.match.nw_dst = "10.0.3.0/24"
+    h10.actions.append(of.ofp_action_output(port = 3))
     self.connection.send(h10)
 
-    # h10 to hnotrust
+    # to serv1
+    h10 = of.ofp_flow_mod()
+    h10.match.dl_type = 0x0800     # IPv4 ethertype
+    h10.match.nw_dst = "10.0.4.0/24"
+    h10.actions.append(of.ofp_action_output(port = 4))
+    self.connection.send(h10)
+
+    #to hnotrust
     # h10 = of.ofp_flow_mod()
-    # h10.match.dl_src = EthAddr("00:00:00:00:00:01")
-    # h10.match.dl_dst = EthAddr("00:00:00:00:00:05")
-    # h10.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
+    # h10.match.dl_type = 0x0800     # IPv4 ethertype
+    # h10.match.nw_dst = "172.16.10.0/24"
+    # h10.actions.append(of.ofp_action_output(port = 5))
     # self.connection.send(h10)
-
-    # h20 to h10
-    h20 = of.ofp_flow_mod()
-    h20.match.dl_src = EthAddr("00:00:00:00:00:02")
-    h20.match.dl_dst = EthAddr("00:00:00:00:00:01")
-    h20.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(h20)
-
-    # h20 to h30
-    h20 = of.ofp_flow_mod()
-    h20.match.dl_src = EthAddr("00:00:00:00:00:02")
-    h20.match.dl_dst = EthAddr("00:00:00:00:00:03")
-    h20.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(h20)
-
-    # h20 to serv1
-    h20 = of.ofp_flow_mod()
-    h20.match.dl_src = EthAddr("00:00:00:00:00:02")
-    h20.match.dl_dst = EthAddr("00:00:00:00:00:04")
-    h20.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(h20)
-
-    # h30 to h10
-    h30 = of.ofp_flow_mod()
-    h30.match.dl_src = EthAddr("00:00:00:00:00:03")
-    h30.match.dl_dst = EthAddr("00:00:00:00:00:01")
-    h30.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(h30)
-
-    # h30 to h20
-    h30 = of.ofp_flow_mod()
-    h30.match.dl_src = EthAddr("00:00:00:00:00:03")
-    h30.match.dl_dst = EthAddr("00:00:00:00:00:02")
-    h30.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(h30)
-
-    # h30 to serv1
-    h30 = of.ofp_flow_mod()
-    h30.match.dl_src = EthAddr("00:00:00:00:00:03")
-    h30.match.dl_dst = EthAddr("00:00:00:00:00:04")
-    h30.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(h30)
-
-    # serv1 to h10
-    serv1 = of.ofp_flow_mod()
-    serv1.match.dl_src = EthAddr("00:00:00:00:00:04")
-    serv1.match.dl_dst = EthAddr("00:00:00:00:00:01")
-    serv1.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(serv1)
-
-    # serv1 to h20
-    serv1 = of.ofp_flow_mod()
-    serv1.match.dl_src = EthAddr("00:00:00:00:00:04")
-    serv1.match.dl_dst = EthAddr("00:00:00:00:00:02")
-    serv1.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(serv1)
-
-    # serv1 to h30
-    serv1 = of.ofp_flow_mod()
-    serv1.match.dl_src = EthAddr("00:00:00:00:00:04")
-    serv1.match.dl_dst = EthAddr("00:00:00:00:00:03")
-    serv1.actions.append(of.ofp_action_output(port = of.OFPP_PORT))
-    self.connection.send(serv1)
-
-    # if the source is hnotrust
 
     # drops any ICMP traffic, should go on cores
     host_no_trust1 = of.ofp_flow_mod()
-    host_no_trust1.match.dl_src = EthAddr("00:00:00:00:00:05") # MAC address for hnotrust1
+    host_no_trust1.match.dl_type = 0x0800
+    host_no_trust1.priority = 50
+    host_no_trust1.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
     host_no_trust1.match.nw_proto = 0x01 # ICMP ip protocol number
     self.connection.send(host_no_trust1)
 
-
     # drops all IP traffic from host_no_trust to the serv1, should go on all switches?
     host_no_trust2 = of.ofp_flow_mod()
-    host_no_trust2.match.dl_src = EthAddr("00:00:00:00:00:05") # MAC address for hnotrust1
-    host_no_trust2.match.dl_dst = EthAddr("00:00:00:00:00:04") # MAC address for serv1
+    host_no_trust2.match.dl_type = 0x0800
+    host_no_trust2.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
+    host_no_trust2.match.dl_dst = "10.0.4.10/24" # MAC address for serv1
     self.connection.send(host_no_trust2)
 
 
-    fm = of_flow_mod()
-    fm.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD))
+  def dcs31_setup(self):
+    fm = of.ofp_flow_mod()
+    fm.actions.append(of.ofp_action_output(port =  of.OFPP_FLOOD))
     self.connection.send(fm)
 
-
-  def dcs31_setup(self):
-    #put datacenter switch rules here
-    pass
 
   #used in part 4 to handle individual ARP packets
   #not needed for part 3 (USE RULES!)
