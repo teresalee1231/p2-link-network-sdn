@@ -74,6 +74,24 @@ class Part3Controller (object):
     fm2.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD)) # flood
     self.connection.send(fm2)
 
+    # HNOTRUST stuff
+    # drops any ICMP traffic, should go on cores
+    host_no_trust1 = of.ofp_flow_mod()
+    host_no_trust1.match.dl_type = 0x0800
+    host_no_trust1.match.nw_proto = 0x01 # ICMP ip protocol number
+    # host_no_trust1.priority = 50
+    host_no_trust1.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
+    self.connection.send(host_no_trust1)
+
+    # drops all IP traffic from host_no_trust to the serv1, should go on all switches?
+    host_no_trust2 = of.ofp_flow_mod()
+    host_no_trust2.match.dl_type = 0x0800
+    host_no_trust2.match.nw_src = "172.16.10.0/24" # IP address for hnotrust1
+    host_no_trust2.match.nw_dst = "10.0.4.0/24" # IP address for serv1
+    self.connection.send(host_no_trust2)
+
+    # NOT HNOTRUST STUFF
+
     # to h20
     h10 = of.ofp_flow_mod()
     h10.match.dl_type = 0x0800     # IPv4 ethertype
@@ -103,26 +121,13 @@ class Part3Controller (object):
     self.connection.send(h10)
 
     #to hnotrust
-    # h10 = of.ofp_flow_mod()
-    # h10.match.dl_type = 0x0800     # IPv4 ethertype
-    # h10.match.nw_dst = "172.16.10.0/24"
-    # h10.actions.append(of.ofp_action_output(port = 5))
-    # self.connection.send(h10)
+    h10 = of.ofp_flow_mod()
+    h10.match.dl_type = 0x0800     # IPv4 ethertype
+    h10.match.nw_dst = "172.16.10.0/24"
+    h10.actions.append(of.ofp_action_output(port = 5))
+    self.connection.send(h10)
 
-    # drops any ICMP traffic, should go on cores
-    host_no_trust1 = of.ofp_flow_mod()
-    host_no_trust1.match.dl_type = 0x0800
-    host_no_trust1.priority = 50
-    host_no_trust1.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
-    host_no_trust1.match.nw_proto = 0x01 # ICMP ip protocol number
-    self.connection.send(host_no_trust1)
 
-    # drops all IP traffic from host_no_trust to the serv1, should go on all switches?
-    host_no_trust2 = of.ofp_flow_mod()
-    host_no_trust2.match.dl_type = 0x0800
-    host_no_trust2.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
-    host_no_trust2.match.dl_dst = "10.0.4.10/24" # MAC address for serv1
-    self.connection.send(host_no_trust2)
 
 
   def dcs31_setup(self):
