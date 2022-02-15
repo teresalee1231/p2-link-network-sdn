@@ -166,8 +166,8 @@ class Part3Controller (object):
     host_no_trust1.match.dl_src = EthAddr("00:00:00:00:00:05") # MAC address for hnotrust1
     host_no_trust1.match.nw_proto = 0x01 # ICMP ip protocol number
     self.connection.send(host_no_trust1)
-    
-    
+
+
     # drops all IP traffic from host_no_trust to the serv1, should go on all switches?
     host_no_trust2 = of.ofp_flow_mod()
     host_no_trust2.match.dl_src = EthAddr("00:00:00:00:00:05") # MAC address for hnotrust1
