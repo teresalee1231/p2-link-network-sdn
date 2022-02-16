@@ -6,6 +6,9 @@
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
 from pox.lib.addresses import IPAddr, IPAddr6, EthAddr
+#import pox.lib.packet as pkt
+from pox.lib.packet.arp import arp
+from pox.lib.packet.ethernet import ethernet
 
 log = core.getLogger()
 
@@ -28,6 +31,10 @@ class Part4Controller (object):
     # Keep track of the connection to the switch so that we can
     # send it messages!
     self.connection = connection
+
+
+    # List of ARP messages we've gotten from
+    self.seenArps = set()
 
     # This binds our PacketIn event listener
     connection.addListeners(self)
@@ -68,13 +75,14 @@ class Part4Controller (object):
 
   def cores21_setup(self):
     #put core switch rules here
+    pass
 
   def dcs31_setup(self):
     fm = of.ofp_flow_mod()
     fm.actions.append(of.ofp_action_output(port =  of.OFPP_FLOOD))
     self.connection.send(fm)
 
-  def handle_core(self):
+  #def handle_core(self):
 
   #used in part 4 to handle individual ARP packets
   #not needed for part 3 (USE RULES!)
@@ -91,15 +99,49 @@ class Part4Controller (object):
     Packets not handled by the router rules will be
     forwarded to this method to be handled by the controller
     """
-    if (self.connection.dpid == 21):
-
 
     packet = event.parsed # This is the parsed packet data.
     if not packet.parsed:
       log.warning("Ignoring incomplete packet")
       return
-
     packet_in = event.ofp # The actual ofp_packet_in message.
+    in_port = event.port
+
+
+    if self.connection.dpid == 21:
+        if packet.type == packet.ARP_TYPE:
+            if packet.payload.opcode == arp.REQUEST:
+
+
+                # if we haven't seen an ARP from this IP address,
+                # we create the flow rule
+                if packet.payload.protosrc not in self.seenArps:
+                    fm = of.ofp_flow_mod()
+                    fm.match.dl_type = 0x0800
+                    fm.match.nw_dst = packet.payload.protosrc
+                    fm.actions.append(of.ofp_action_output(port = in_port))
+                    self.connection.send(fm)
+                    self.seenArps.add(packet.payload.protosrc)
+                    print("hello ")
+                    print(packet.payload.protosrc)
+
+
+                # honestly not sure why we need to send an arp reply but
+                # we're going to anyways
+                arp_reply = arp()
+                arp_reply.hwsrc = "aa:bb:cc:dd:ee:ff"
+                arp_reply.hwdst = packet.src
+                arp_reply.opcode = arp.REPLY
+                #arp_reply.protosrc = <>
+                arp_reply.protodst = packet.payload.protosrc
+
+                ether = ethernet()
+                ether.type = ethernet.ARP_TYPE
+                ether.dst = packet.src
+                ether.src = "aa:bb:cc:dd:ee:ff"
+                ether.payload = arp_reply
+
+                self.resend_packet(ether, in_port)
     print ("Unhandled packet from " + str(self.connection.dpid) + ":" + packet.dump())
 
 def launch ():
