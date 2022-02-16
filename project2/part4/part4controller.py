@@ -6,7 +6,7 @@
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
 from pox.lib.addresses import IPAddr, IPAddr6, EthAddr
-#import pox.lib.packet as pkt
+
 from pox.lib.packet.arp import arp
 from pox.lib.packet.ethernet import ethernet
 
@@ -31,7 +31,6 @@ class Part4Controller (object):
     # Keep track of the connection to the switch so that we can
     # send it messages!
     self.connection = connection
-
 
     # List of ARP messages we've gotten from
     self.seenArps = set()
@@ -72,17 +71,29 @@ class Part4Controller (object):
     fm.actions.append(of.ofp_action_output(port =  of.OFPP_FLOOD))
     self.connection.send(fm)
 
-
   def cores21_setup(self):
     #put core switch rules here
-    pass
+
+    # HNOTRUST rules
+    # drops any ICMP traffic, should go on cores
+    host_no_trust1 = of.ofp_flow_mod()
+    host_no_trust1.match.dl_type = 0x0800
+    host_no_trust1.match.nw_proto = 0x01 # ICMP ip protocol number
+
+    host_no_trust1.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
+    self.connection.send(host_no_trust1)
+
+    # drops all IP traffic from host_no_trust to the serv1, should go on all switches?
+    host_no_trust2 = of.ofp_flow_mod()
+    host_no_trust2.match.dl_type = 0x0800
+    host_no_trust2.match.nw_src = "172.16.10.0/24" # IP address for hnotrust1
+    host_no_trust2.match.nw_dst = "10.0.4.0/24" # IP address for serv1
+    self.connection.send(host_no_trust2)
 
   def dcs31_setup(self):
     fm = of.ofp_flow_mod()
     fm.actions.append(of.ofp_action_output(port =  of.OFPP_FLOOD))
     self.connection.send(fm)
-
-  #def handle_core(self):
 
   #used in part 4 to handle individual ARP packets
   #not needed for part 3 (USE RULES!)
@@ -107,41 +118,35 @@ class Part4Controller (object):
     packet_in = event.ofp # The actual ofp_packet_in message.
     in_port = event.port
 
+    if (self.connection.dpid == 21
+          and packet.type == packet.ARP_TYPE
+          and packet.payload.opcode == arp.REQUEST):
 
-    if self.connection.dpid == 21:
-        if packet.type == packet.ARP_TYPE:
-            if packet.payload.opcode == arp.REQUEST:
+      arp_reply = arp()
+      arp_reply.hwsrc = EthAddr("aa:bb:cc:dd:ee:ff")
+      arp_reply.hwdst = packet.src
+      arp_reply.opcode = arp.REPLY
+      arp_reply.protosrc = packet.payload.protodst
+      arp_reply.protodst = packet.payload.protosrc
 
+      ether = ethernet()
+      ether.type = ethernet.ARP_TYPE
+      ether.dst = packet.src
+      ether.src = EthAddr("aa:bb:cc:dd:ee:ff")
+      ether.payload = arp_reply
 
-                # if we haven't seen an ARP from this IP address,
-                # we create the flow rule
-                if packet.payload.protosrc not in self.seenArps:
-                    fm = of.ofp_flow_mod()
-                    fm.match.dl_type = 0x0800
-                    fm.match.nw_dst = packet.payload.protosrc
-                    fm.actions.append(of.ofp_action_output(port = in_port))
-                    self.connection.send(fm)
-                    self.seenArps.add(packet.payload.protosrc)
-                    print("hello ")
-                    print(packet.payload.protosrc)
+      if packet.payload.protosrc not in self.seenArps:
+        fm = of.ofp_flow_mod()
+        fm.match.dl_type = 0x0800
+        fm.match.nw_dst = packet.payload.protosrc
+        fm.actions.append(of.ofp_action_dl_addr.set_src(EthAddr("aa:bb:cc:dd:ee:ff")))
+        fm.actions.append(of.ofp_action_dl_addr.set_dst(packet.src))
+        fm.actions.append(of.ofp_action_output(port = in_port))
+        self.seenArps.add(packet.payload.protosrc)
+        self.connection.send(fm)
 
-
-                # honestly not sure why we need to send an arp reply but
-                # we're going to anyways
-                arp_reply = arp()
-                arp_reply.hwsrc = "aa:bb:cc:dd:ee:ff"
-                arp_reply.hwdst = packet.src
-                arp_reply.opcode = arp.REPLY
-                #arp_reply.protosrc = <>
-                arp_reply.protodst = packet.payload.protosrc
-
-                ether = ethernet()
-                ether.type = ethernet.ARP_TYPE
-                ether.dst = packet.src
-                ether.src = "aa:bb:cc:dd:ee:ff"
-                ether.payload = arp_reply
-
-                self.resend_packet(ether, in_port)
+      ether.set_payload(arp_reply)
+      self.resend_packet(ether, in_port)
     print ("Unhandled packet from " + str(self.connection.dpid) + ":" + packet.dump())
 
 def launch ():
