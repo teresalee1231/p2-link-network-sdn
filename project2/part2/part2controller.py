@@ -5,6 +5,7 @@
 
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
+import pox.lib.packet as pkt
 
 log = core.getLogger()
 
@@ -21,24 +22,23 @@ class Firewall (object):
     # This binds our PacketIn event listener
     connection.addListeners(self)
 
-    #add switch rules here
-
+    # add switch rules here
     # rule 1: any ipv4 in/out, icmp -> flood packet
     fm1 = of.ofp_flow_mod()
-    fm1.match.dl_type = 0x0800     # IPv4 ethertype
-    fm1.match.nw_proto = 0x01     # ICMP ip protocol number
+    fm1.match.dl_type = pkt.ethernet.IP_TYPE    # IPv4 ethertype
+    fm1.match.nw_proto = pkt.ipv4.ICMP_PROTOCOL # ICMP ip protocol number
     fm1.priority = 3
     fm1.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD)) # flood
 
     # rule 2: any ip in/out, arp -> flood packet
     fm2 = of.ofp_flow_mod()
-    fm2.match.dl_type = 0x0806     # ARP ethertype
+    fm2.match.dl_type = pkt.ethernet.ARP_TYPE   # ARP ethertype
     fm2.priority = 2
     fm2.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD)) # flood
 
     # rule 3: drop any other packets
     fm3 = of.ofp_flow_mod()
-    fm3.match.dl_type = 0x0800
+    fm3.match.dl_type = pkt.ethernet.IP_TYPE
     fm3.priority = 1
 
     # install rules, in order
