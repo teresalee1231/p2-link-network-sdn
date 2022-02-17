@@ -6,6 +6,7 @@
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
 from pox.lib.addresses import IPAddr, IPAddr6, EthAddr
+import pox.lib.packet as pkt
 
 log = core.getLogger()
 
@@ -67,74 +68,68 @@ class Part3Controller (object):
 
 
   def cores21_setup(self):
-    #put core switch rules here
+    # put core switch rules here
     # MUST FLOOD ARP
-    fm2 = of.ofp_flow_mod()
-    fm2.match.dl_type = 0x0806     # ARP ethertype
-    fm2.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD)) # flood
-    self.connection.send(fm2)
+    fm = of.ofp_flow_mod()
+    fm.match.dl_type = pkt.ethernet.ARP_TYPE   # ARP ethertype
+    fm.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD)) # flood
+    self.connection.send(fm)
 
-    # HNOTRUST stuff
-    # drops any ICMP traffic, should go on cores
+    # BLOCK HNOTRUST
+    # drops any ICMP traffic
     host_no_trust1 = of.ofp_flow_mod()
-    host_no_trust1.match.dl_type = 0x0800
-    host_no_trust1.match.nw_proto = 0x01 # ICMP ip protocol number
-    # host_no_trust1.priority = 50
-    host_no_trust1.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
+    host_no_trust1.match.dl_type = pkt.ethernet.IP_TYPE
+    host_no_trust1.match.nw_proto = pkt.ipv4.ICMP_PROTOCOL
+    host_no_trust1.match.nw_src = "172.16.10.0/24" # prefix for hnotrust1
     self.connection.send(host_no_trust1)
 
-    # drops all IP traffic from host_no_trust to the serv1, should go on all switches?
+    # drops all IP traffic from host_no_trust to the serv1
     host_no_trust2 = of.ofp_flow_mod()
-    host_no_trust2.match.dl_type = 0x0800
-    host_no_trust2.match.nw_src = "172.16.10.0/24" # IP address for hnotrust1
-    host_no_trust2.match.nw_dst = "10.0.4.0/24" # IP address for serv1
+    host_no_trust2.match.dl_type = pkt.ethernet.IP_TYPE
+    host_no_trust2.match.nw_src = "172.16.10.0/24"  # prefix for hnotrust1
+    host_no_trust2.match.nw_dst = "10.0.4.0/24"     # prefix for serv1
     self.connection.send(host_no_trust2)
 
-    # NOT HNOTRUST STUFF
-
-    # to h20
-    h10 = of.ofp_flow_mod()
-    h10.match.dl_type = 0x0800     # IPv4 ethertype
-    h10.match.nw_dst = "10.0.2.0/24"
-    h10.actions.append(of.ofp_action_output(port = 2))
-    self.connection.send(h10)
-
+    # ROUTING PACKET TO EACH PORT
     # to h10
     h10 = of.ofp_flow_mod()
-    h10.match.dl_type = 0x0800     # IPv4 ethertype
+    h10.match.dl_type = pkt.ethernet.IP_TYPE
     h10.match.nw_dst = "10.0.1.0/24"
     h10.actions.append(of.ofp_action_output(port = 1))
     self.connection.send(h10)
 
+    # to h20
+    h20 = of.ofp_flow_mod()
+    h20.match.dl_type = pkt.ethernet.IP_TYPE
+    h20.match.nw_dst = "10.0.2.0/24"
+    h20.actions.append(of.ofp_action_output(port = 2))
+    self.connection.send(h20)
+
     # to h30
-    h10 = of.ofp_flow_mod()
-    h10.match.dl_type = 0x0800     # IPv4 ethertype
-    h10.match.nw_dst = "10.0.3.0/24"
-    h10.actions.append(of.ofp_action_output(port = 3))
-    self.connection.send(h10)
+    h30 = of.ofp_flow_mod()
+    h30.match.dl_type = pkt.ethernet.IP_TYPE
+    h30.match.nw_dst = "10.0.3.0/24"
+    h30.actions.append(of.ofp_action_output(port = 3))
+    self.connection.send(h30)
 
     # to serv1
-    h10 = of.ofp_flow_mod()
-    h10.match.dl_type = 0x0800     # IPv4 ethertype
-    h10.match.nw_dst = "10.0.4.0/24"
-    h10.actions.append(of.ofp_action_output(port = 4))
-    self.connection.send(h10)
+    serv1 = of.ofp_flow_mod()
+    serv1.match.dl_type = pkt.ethernet.IP_TYPE
+    serv1.match.nw_dst = "10.0.4.0/24"
+    serv1.actions.append(of.ofp_action_output(port = 4))
+    self.connection.send(serv1)
 
     #to hnotrust
-    h10 = of.ofp_flow_mod()
-    h10.match.dl_type = 0x0800     # IPv4 ethertype
-    h10.match.nw_dst = "172.16.10.0/24"
-    h10.actions.append(of.ofp_action_output(port = 5))
-    self.connection.send(h10)
-
-
-
+    hnt = of.ofp_flow_mod()
+    hnt.match.dl_type = pkt.ethernet.IP_TYPE
+    hnt.match.nw_dst = "172.16.10.0/24"
+    hnt.actions.append(of.ofp_action_output(port = 5))
+    self.connection.send(hnt)
 
   def dcs31_setup(self):
     fm = of.ofp_flow_mod()
     fm.actions.append(of.ofp_action_output(port =  of.OFPP_FLOOD))
     self.connection.send(fm)
-
 
   #used in part 4 to handle individual ARP packets
   #not needed for part 3 (USE RULES!)
