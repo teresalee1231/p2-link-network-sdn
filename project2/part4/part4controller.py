@@ -1,4 +1,4 @@
-# Part 3 of UWCSE's Project 3
+# Part 4 of UWCSE's Project 3
 #
 # based on Lab Final from UCSC's Networking Class
 # which is based on of_tutorial by James McCauley
@@ -6,9 +6,7 @@
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
 from pox.lib.addresses import IPAddr, IPAddr6, EthAddr
-
-from pox.lib.packet.arp import arp
-from pox.lib.packet.ethernet import ethernet
+import pox.lib.packet as pkt
 
 log = core.getLogger()
 
@@ -64,7 +62,6 @@ class Part4Controller (object):
     fm.actions.append(of.ofp_action_output(port =  of.OFPP_FLOOD))
     self.connection.send(fm)
 
-
   def s3_setup(self):
     #put switch 3 rules here
     fm = of.ofp_flow_mod()
@@ -73,21 +70,19 @@ class Part4Controller (object):
 
   def cores21_setup(self):
     #put core switch rules here
-
-    # HNOTRUST rules
-    # drops any ICMP traffic, should go on cores
+    # BLOCK HNOTRUST
+    # drops any ICMP traffic
     host_no_trust1 = of.ofp_flow_mod()
-    host_no_trust1.match.dl_type = 0x0800
-    host_no_trust1.match.nw_proto = 0x01 # ICMP ip protocol number
-
-    host_no_trust1.match.nw_src = "172.16.10.0/24" # MAC address for hnotrust1
+    host_no_trust1.match.dl_type = pkt.ethernet.IP_TYPE
+    host_no_trust1.match.nw_proto = pkt.ipv4.ICMP_PROTOCOL
+    host_no_trust1.match.nw_src = "172.16.10.0/24" # prefix for hnotrust1
     self.connection.send(host_no_trust1)
 
-    # drops all IP traffic from host_no_trust to the serv1, should go on all switches?
+    # drops all IP traffic from host_no_trust to the serv1
     host_no_trust2 = of.ofp_flow_mod()
-    host_no_trust2.match.dl_type = 0x0800
-    host_no_trust2.match.nw_src = "172.16.10.0/24" # IP address for hnotrust1
-    host_no_trust2.match.nw_dst = "10.0.4.0/24" # IP address for serv1
+    host_no_trust2.match.dl_type = pkt.ethernet.IP_TYPE
+    host_no_trust2.match.nw_src = "172.16.10.0/24"  # prefix for hnotrust1
+    host_no_trust2.match.nw_dst = "10.0.4.0/24"     # prefix for serv1
     self.connection.send(host_no_trust2)
 
   def dcs31_setup(self):
@@ -120,24 +115,24 @@ class Part4Controller (object):
 
     if (self.connection.dpid == 21
           and packet.type == packet.ARP_TYPE
-          and packet.payload.opcode == arp.REQUEST):
+          and packet.payload.opcode == pkt.arp.REQUEST):
 
-      arp_reply = arp()
+      arp_reply = pkt.arp()
       arp_reply.hwsrc = EthAddr("aa:bb:cc:dd:ee:ff")
       arp_reply.hwdst = packet.src
-      arp_reply.opcode = arp.REPLY
+      arp_reply.opcode = pkt.arp.REPLY
       arp_reply.protosrc = packet.payload.protodst
       arp_reply.protodst = packet.payload.protosrc
 
-      ether = ethernet()
-      ether.type = ethernet.ARP_TYPE
+      ether = pkt.ethernet()
+      ether.type = pkt.ethernet.ARP_TYPE
       ether.dst = packet.src
       ether.src = EthAddr("aa:bb:cc:dd:ee:ff")
       ether.payload = arp_reply
 
       if packet.payload.protosrc not in self.seenArps:
         fm = of.ofp_flow_mod()
-        fm.match.dl_type = 0x0800
+        fm.match.dl_type = pkt.ethernet.IP_TYPE    # IPv4 ethertype
         fm.match.nw_dst = packet.payload.protosrc
         fm.actions.append(of.ofp_action_dl_addr.set_src(EthAddr("aa:bb:cc:dd:ee:ff")))
         fm.actions.append(of.ofp_action_dl_addr.set_dst(packet.src))
